@@ -3,6 +3,8 @@ const router = new express.Router();
 const User = require('../models/user');
 
 
+
+
 router.get('/', async (req, res) => {
   try {
     const users = await User.find({});
@@ -44,13 +46,23 @@ router.patch('/:id', async (req, res) => {
     return res.status(400).send({error: 'Invalid updates!' });
   }
 
+  // USE findById for password hashing middleware or mongoose bypasses middleware with findByIdAndUpdate
   try {
-    const user = await User.findByIdAndUpdate(req.params.id, req.body, {
-      new: true,
-      runValidators: true,
-    });
+    //get user
+    const user = await User.findById(req.params.id);
 
-    user ? res.send(user) : res.status(401).send();
+    // return 401 if no user found
+    if (!user) {
+        return res.status(404).send()
+    }
+
+    //update each field provided by req.body
+    updates.forEach((update) => {
+      user[update] = req.body[update]
+    })
+
+    await user.save();
+    res.send(user);
   } catch (e) {
     res.status(400).send(e);
   }

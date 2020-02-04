@@ -44,12 +44,35 @@ router.patch('/:id', async (req, res) => {
   }
 
   try {
-    const task = await Task.findByIdAndUpdate(req.params.id, req.body, {
-      new: true,
-      runValidators: true,
-    });
+    //find task
+    const task = await Task.findById(req.params.id)
 
-    task ? res.send(task) : res.status(401).send();
+    if (!task) {
+        return res.status(404).send()
+    }
+
+    updates.forEach(update => task[update] = req.body[update])
+    await task.save()
+
+
+    res.send(task);
+
+    // //// USE findById instead of findByIdAndUpdate because mongoose bypasses middleware with findByIdAndUpdate
+
+    // const task = await Task.findById(req.params.id);
+
+    // // if no task return 401
+    // task ? res.send(task) : res.status(401).send();
+
+    // // loop through updates provided by req.body
+    // updates.forEach((update) => {
+
+    //     //update each task field
+    //     task[update] = req.body[update];
+    // });
+
+    // await task.save();
+    // res.send(task);
   } catch (e) {
     res.status(400).send(e);
   }
