@@ -1,6 +1,7 @@
 const mongoose = require('mongoose');
 const validator = require('validator');  // validate email
 const bcrypt = require('bcryptjs');  // hash passwords
+const jwt = require('jsonwebtoken');
 
 const userSchema = new mongoose.Schema({
     name: {
@@ -10,6 +11,7 @@ const userSchema = new mongoose.Schema({
     },
     email: {
         type: String,
+        unique: true,
         required: true,
         trim: true,
         lowercase: true,
@@ -38,9 +40,68 @@ const userSchema = new mongoose.Schema({
                 throw new Error('Age must be a positive number');
             }
         }
-    }
+    },
+    tokens: [{  // from jsonwebToken
+        token: {
+            type: String,
+            required: true
+        }
+    }]
 })
 
+//Only send back public data
+// * no arrow function for "this"
+// * .toJSON every time json data is sent back it removes user.password and user.tokens
+userSchema.methods.toJSON = function () {
+    const user = this;
+
+    const userObject = user.toObject() // toObject == mongoose method
+
+    // delete operator removes property from object
+    delete userObject.password;
+    delete userObject.tokens;
+
+    return userObject;
+}
+
+//create userToken
+userSchema.methods.generateAuthToken = async function () {  // not arrow function to use this
+    const user = this;
+    const token = jwt.sign({ _id: user._id.toString() }, 'thisismynewcourse');
+
+    user.tokens = user.tokens.concat({ token });
+    await user.save();
+
+    return token;
+
+    // res.send({ user, token })
+
+    // add new tokens to user in case signed in on multiple devices.
+    // user.tokens = user.tokens.concat({ token });
+    // await user.save() // save new token to database
+
+    return token;
+}
+
+// LOGIN
+// validate user by email and password for login
+userSchema.statics.findByCredentials = async (email, password) => {
+    const user = await User.findOne({ email })
+
+    if(!user) {
+        throw new Error('Unable to login');
+    }
+
+    const isMatch = await bcrypt.compare(password, user.password);
+
+    if(!isMatch) {
+        throw new Error('Unable to login');
+    }
+
+    return user;
+}
+
+// Hash the plain text password before saving
 userSchema.pre('save', async function (next) {  // not arrow function because of this
     const user = this // easier to see than this
 
