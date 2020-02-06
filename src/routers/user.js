@@ -72,7 +72,7 @@ router.post('/logoutAll', auth, async (req, res) => {
   }
 });
 
-router.patch('/:id', async (req, res) => {
+router.patch('/me', auth, async (req, res) => {
   // what is allowed to update
   const updates = Object.keys(req.body) // returns list of keys from req.body
   const allowedUpdates = ['name', 'email', 'password', 'age'];
@@ -86,21 +86,14 @@ router.patch('/:id', async (req, res) => {
 
   // USE findById for password hashing middleware or mongoose bypasses middleware with findByIdAndUpdate
   try {
-    //get user
-    const user = await User.findById(req.params.id);
 
-    // return 401 if no user found
-    if (!user) {
-        return res.status(404).send()
-    }
 
+    //get user from auth middleware req.user
     //update each field provided by req.body
-    updates.forEach((update) => {
-      user[update] = req.body[update]
-    })
+    updates.forEach(update => req.user[update] = req.body[update]);
 
-    await user.save();
-    res.send(user);
+    await req.user.save();
+    res.send(req.user);
   } catch (e) {
     res.status(400).send(e);
   }
@@ -112,7 +105,6 @@ router.delete('/:id', auth,  async (req, res) => {
 
   try {
     // const deletedUser = await User.findByIdAndDelete(req.params.id)
-
     // deletedUser ? res.send(deletedUser) : res.status(404).send()
 
     // remove using express remove() and req.user from auth middleware

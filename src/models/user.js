@@ -2,6 +2,7 @@ const mongoose = require('mongoose');
 const validator = require('validator');  // validate email
 const bcrypt = require('bcryptjs');  // hash passwords
 const jwt = require('jsonwebtoken');
+const Task = require('./task');  // required for delete all tasks middleware
 
 const userSchema = new mongoose.Schema({
     name: {
@@ -64,6 +65,14 @@ userSchema.methods.toJSON = function () {
     return userObject;
 }
 
+// Create virtual connection to all Tasks created by User
+// * User local field and Task foreign Field must match
+userSchema.virtual('tasks', {
+    ref: 'Task',  // reference Task Model,
+    localField: '_id',  // local property that is same as foriegn field (user _id)
+    foreignField: 'owner' // name of thing on Task model that creates relationship (user_id)
+})
+
 //create userToken
 userSchema.methods.generateAuthToken = async function () {  // not arrow function to use this
     const user = this;
@@ -111,6 +120,17 @@ userSchema.pre('save', async function (next) {  // not arrow function because of
         //hash password before save
         user.password = await bcrypt.hash(user.password, 8);
     }
+
+    next()
+})
+
+// Delete user tasks when user is removed
+// * can't use arrow function because of 'this'
+userSchema.pre('remove', async function (next) {
+    const user = this  // change this to user for clarity
+
+    // delete all tasks whose ownder is user_.id (logged in user)
+    await Task.deleteMany({ owner: user._id})
 
     next()
 })
