@@ -4,6 +4,13 @@ const bcrypt = require('bcryptjs');  // hash passwords
 const jwt = require('jsonwebtoken');
 const Task = require('./task');  // required for delete all tasks middleware
 
+// Create User Schema
+// * name
+// * email
+// * password
+// * age
+// * tokens (from jsonwebtoken)
+// * timestamps (as second object provided to user Schema)
 const userSchema = new mongoose.Schema({
     name: {
         type: String,
@@ -48,7 +55,9 @@ const userSchema = new mongoose.Schema({
             required: true
         }
     }]
-})
+}, {
+    timestamps: true
+});
 
 //Only send back public data
 // * no arrow function for "this"

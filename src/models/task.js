@@ -3,6 +3,7 @@ const mongoose = require('mongoose');
 
 // create task schema
     // Mongoose renames model tasks in database
+const taskSchema
 
 const Task = mongoose.model('Task', {
     description: {
