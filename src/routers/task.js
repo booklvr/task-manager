@@ -5,14 +5,27 @@ const Task = require ('../models/task');
 const auth = require ('../middleware/auth');
 
 
-// Read all tasks from logged in User
+
+// READ all tasks from logged in User
+// * /tasks?completed=true
+//    -> search by complete true or false
 // * get user from auth middleware -> req.user
 // * populate tasks from logged in user --> req.user.populate()
 //      --> get from use UserSchema.virtual
 // * send populated tasks
 router.get('/', auth, async (req, res) => {
+
+  const match = {};
+
+  if (req.query.completed) { //req.query.completed is from http://...tasks?completed=true
+    match.completed = req.query.completed === 'true';  // if req.query.complete equals the string 'true' -> match.completed = true
+  }
+
   try {
-    await req.user.populate('tasks').execPopulate();
+    await req.user.populate({
+      path: 'tasks', // populate tasks
+      match  // es6 shorthand match: match
+    }).execPopulate();
 
     res.send(req.user.tasks);
   } catch (e) {
