@@ -9,6 +9,11 @@ const auth = require ('../middleware/auth');
 // READ all tasks from logged in User
 // * /tasks?completed=true
 //    -> search by complete true or false
+// * /tasks?limit=10&skip=10;
+//    -> limit search by ten and skip first 10
+// * /tasks?sortBy=createdAt:desc
+//    -> sort by createdAt by descending order
+
 // * get user from auth middleware -> req.user
 // * populate tasks from logged in user --> req.user.populate()
 //      --> get from use UserSchema.virtual
@@ -16,15 +21,27 @@ const auth = require ('../middleware/auth');
 router.get('/', auth, async (req, res) => {
 
   const match = {};
+  const sort = {}; // empty object to parse sort query
 
   if (req.query.completed) { //req.query.completed is from http://...tasks?completed=true
     match.completed = req.query.completed === 'true';  // if req.query.complete equals the string 'true' -> match.completed = true
   }
 
+  if (req.query.sortBy) {
+    // split sortBy query into parts
+    const parts = req.query.sortBy.split(':') // split by chosen special character :
+    sort[parts[0]] = parts[1] === 'desc' ? -1 : 1;  // sort first part = asc or desc
+  }
+
   try {
     await req.user.populate({
       path: 'tasks', // populate tasks
-      match  // es6 shorthand match: match
+      match, // es6 shorthand match: match
+      options: {
+        limit: parseInt(req.query.limit), // limit tasks read by ?limit=""
+        skip: parseInt(req.query.skip), // skip number of tasks
+        sort // es6 shorthand sort: sort
+      }
     }).execPopulate();
 
     res.send(req.user.tasks);

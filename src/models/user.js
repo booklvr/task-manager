@@ -11,6 +11,7 @@ const Task = require('./task');  // required for delete all tasks middleware
 // * age
 // * tokens (from jsonwebtoken)
 // * timestamps (as second object provided to user Schema)
+// * avatar -> use multer
 const userSchema = new mongoose.Schema({
     name: {
         type: String,
@@ -54,7 +55,10 @@ const userSchema = new mongoose.Schema({
             type: String,
             required: true
         }
-    }]
+    }],
+    avatar: {
+        type: Buffer // for storing profile pics -> multer does all verification.
+    }
 }, {
     timestamps: true
 });
@@ -70,6 +74,7 @@ userSchema.methods.toJSON = function () {
     // delete operator removes property from object
     delete userObject.password;
     delete userObject.tokens;
+    delete userObject.avatar;
 
     return userObject;
 }
@@ -85,7 +90,7 @@ userSchema.virtual('tasks', {
 //create userToken
 userSchema.methods.generateAuthToken = async function () {  // not arrow function to use this
     const user = this;
-    const token = jwt.sign({ _id: user._id.toString() }, 'thisismynewcourse');
+    const token = jwt.sign({ _id: user._id.toString() }, process.env.JWT_SECRET);
 
     user.tokens = user.tokens.concat({ token });
     await user.save();

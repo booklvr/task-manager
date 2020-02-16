@@ -1,8 +1,14 @@
 const express = require('express');
 const auth = require('../middleware/auth');
 const User = require('../models/user');
+const multer = require('multer');  // required for file uploads
+const sharp = require('sharp');  // convert and resize images
+
+const { sendWelcomeEmail, sendCancelEmail } = require('../emails/account');
 
 const router = new express.Router();
+
+
 
 
 router.get('/me', auth, async (req, res) => {
@@ -21,6 +27,10 @@ router.post('/', async (req, res) => {
 
   try {
     await user.save();
+
+    // send welcome email using sendgrid from
+    sendWelcomeEmail(user.email, user.name);
+
     const token = await user.generateAuthToken();
     res.status(201).send({ user, token });
   } catch (e) {
@@ -72,6 +82,79 @@ router.post('/logoutAll', auth, async (req, res) => {
   }
 });
 
+// MULTER middlware for POST /user/me/avatar
+const upload = multer({
+  // dest: 'avatars',  // provide file for uploaded images in route directory (remove to pass file through function)
+  limits: {
+    fileSize: 1000000
+  },
+  fileFilter(req, file, cb) { // req, file-info, callback
+    if(!file.originalname.match(/\.(jpg|jpeg|png)$/)) { // restrict file type to jpg jpeg or png -> originalname from multer docs
+      return cb(new Error('File must be .jpg, .jpeg, or .png file type'));
+    }
+
+    cb(undefined, true); // success
+    // cb(undefined, false); // silently reject
+  }
+})
+
+// POST Avatar
+// * upload.single() is middleware provided by multer
+//  -> upload.single() requires an argument we are just calling upload
+//  -> 'upload' must match key value in req.body (key value pair in postman)
+router.post('/me/avatar', auth, upload.single('avatar'), async (req, res) => {  // async for req.user.save()
+
+  // * use sharp to resize photo and convert to png format
+  //  -> req.file.buffer is from multer and contains binary info form the image uploaded
+  const buffer = await sharp(req.file.buffer).resize({ width: 250, height: 250 }).png().toBuffer();
+
+  req.user.avatar = buffer;
+  await req.user.save();  // save file to user profile
+  res.send();
+}, (error, req, res, next) => { // all four arguments needed so express knows to expect an error
+  res.status(400).send({error: error.message }); // error from upload.single multer middleware
+})
+
+// GET Avatar
+// image available at URL  just include in image src in html markup.
+router.get('/:id/avatar', async (req, res) => {
+
+  try {
+    const user = await User.findById(req.params.id)
+
+    if (!user | !user.avatar) {
+      throw new Error(); // no error message because not sending error message bellow
+    }
+
+    // create response header
+    // * res.set takes in key value pair { nameOfResponseHeader: valueTryingToSet }
+    res.set('Content-Type', 'image/png');   // we know it is png because we converted using sharp in post route
+    res.send(user.avatar);
+  } catch (e) {
+    res.status(404).send();
+  }
+
+})
+
+// DELETE Avatar
+router.delete('/me/avatar', auth, async (req, res) => {
+
+  try {
+
+    // remove using express remove() and req.user from auth middleware
+    req.user.avatar = undefined; // this deletes binary data from req.user.avatar
+    await req.user.save();
+    res.send(req.user);
+  } catch (e) {
+    res.status(500).send(e);
+  }
+});
+
+
+
+
+
+// UPDATE user
 router.patch('/me', auth, async (req, res) => {
   // what is allowed to update
   const updates = Object.keys(req.body) // returns list of keys from req.body
@@ -100,19 +183,13 @@ router.patch('/me', auth, async (req, res) => {
 });
 
 // delete logged in user
-router.delete('/:id', auth,  async (req, res) => {
-
-
+router.delete('/me', auth, async (req, res) => {
   try {
-    // const deletedUser = await User.findByIdAndDelete(req.params.id)
-    // deletedUser ? res.send(deletedUser) : res.status(404).send()
-
-    // remove using express remove() and req.user from auth middleware
     await req.user.remove();
-    res.send(req.user);
-
+    sendCancelEmail(req.user.email, req.user.name)
+    res.send(req.user)
   } catch (e) {
-    res.status(500).send(e);
+    res.status(500).send();
   }
 })
 

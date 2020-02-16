@@ -11,7 +11,7 @@ const auth = async (req, res, next) => {
         const token = req.header('Authorization').replace('Bearer ', '');
 
         // compare auth token with
-        const decoded = jwt.verify(token, 'thisismynewcourse');
+        const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
         //find user with correct id that has authentication token still stored in their tokens array
         const user = await User.findOne({ _id: decoded._id, 'tokens.token': token });
